@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import {DecentralisedStablecoin} from "./DecentralisedStablecoin.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 /**
  * @title DSCEngine
  * @author howellsy
@@ -22,8 +25,51 @@ pragma solidity ^0.8.18;
  * and redeeming DSC tokens, as well as depositing and withdrawing collateral.
  * @notice This contract is VERY loosely based on the MakerDAO DSS (DAI) system.
  */
-contract DSCEngine {
-    function depositCollateral() external {}
+contract DSCEngine is ReentrancyGuard {
+    mapping(address token => address priceFeed) private s_priceFeeds;
+
+    DecentralisedStablecoin private immutable i_dsc;
+
+    error DSCEngine__MustBeMoreThanZero();
+    error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+    error DSCEngine__TokenNotAllowed();
+
+    modifier isAllowedToken(address token) {
+        if (s_priceFeeds[token] == address(0)) {
+            revert DSCEngine__TokenNotAllowed();
+        }
+        _;
+    }
+
+    modifier moreThanZero(uint256 amount) {
+        if (amount == 0) {
+            revert DSCEngine__MustBeMoreThanZero();
+        }
+        _;
+    }
+
+    constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address dscAddress) {
+        if (tokenAddresses.length != priceFeedAddresses.length) {
+            revert DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+        }
+
+        for (uint256 i = 0; i < tokenAddresses.length; i++) {
+            s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+        }
+
+        i_dsc = DecentralisedStablecoin(dscAddress);
+    }
+
+    /**
+     * @param tokenCollateral The address of the collateral token
+     * @param amount The amount of collateral to deposit
+     */
+    function depositCollateral(address tokenCollateral, uint256 amount)
+        external
+        moreThanZero(amount)
+        isAllowedToken(tokenCollateral)
+        nonReentrant
+    {}
 
     function depositCollateralAndMintDsc() external {}
 
