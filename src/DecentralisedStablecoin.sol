@@ -18,7 +18,7 @@ contract DecentralisedStablecoin is ERC20Burnable, Ownable {
     error DecentralisedStablecoin__MustBeMoreThanZero();
     error DecentralisedStablecoin__NotZeroAddress();
 
-    constructor(address initialOwner) ERC20("DecentralisedStablecoin", "DSC") Ownable(initialOwner) {}
+    constructor() ERC20("DecentralisedStablecoin", "DSC") {}
 
     /**
      * @notice Mint new DSC tokens
