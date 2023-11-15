@@ -61,4 +61,19 @@ contract DSCEngineTest is Test {
         dsce.depositCollateral(address(0), AMOUNT_COLLATERAL);
         vm.stopPrank();
     }
+
+    /**
+     * ==============
+     * Mint DSC tests
+     * ==============
+     */
+    function testMintRevertsIfAmountZero() public {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+        dsce.depositCollateral(weth, AMOUNT_COLLATERAL);
+
+        vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
+        dsce.mintDsc(0);
+        vm.stopPrank();
+    }
 }
