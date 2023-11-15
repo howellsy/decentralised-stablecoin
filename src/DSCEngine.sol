@@ -41,7 +41,8 @@ contract DSCEngine is ReentrancyGuard {
 
     DecentralisedStablecoin private immutable i_dsc;
 
-    event CollateralDeposited(address indexed user, address indexed token, uint256 amount);
+    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+    event CollateralRedeemed(address indexed user, address indexed token, uint256 indexed amount);
 
     error DSCEngine__BreaksHealthFactor(uint256 healthFactor);
     error DSCEngine__MintFailed();
@@ -97,9 +98,33 @@ contract DSCEngine is ReentrancyGuard {
 
     function depositCollateralAndMintDsc() external {}
 
-    function redeemCollateral() external {}
+    /**
+     * In order to redeem collateral, the health factor must be above 1 AFTER the collateral is removed.
+     */
+    function redeemCollateral(address tokenCollateral, uint256 amount) public moreThanZero(amount) nonReentrant {
+        s_collateralBalances[msg.sender][tokenCollateral] -= amount;
+        emit CollateralRedeemed(msg.sender, tokenCollateral, amount);
 
-    function redeemCollateralForDsc() external {}
+        bool success = IERC20(tokenCollateral).transfer(msg.sender, amount);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
+
+    /**
+     * Burns DSC tokens and redeems collateral in one transaction.
+     * @param tokenCollateral The address of the collateral token to redeem
+     * @param amountCollateral The amount of collateral to redeem
+     * @param amountDscToBurn The amount of DSC tokens to burn
+     */
+    function redeemCollateralForDsc(address tokenCollateral, uint256 amountCollateral, uint256 amountDscToBurn)
+        external
+    {
+        burnDsc(amountDscToBurn);
+        // redeemCollateral() checks if health factor is broken
+        redeemCollateral(tokenCollateral, amountCollateral);
+    }
 
     /**
      * @param amountDscToMint The amount of DSC tokens to mint
@@ -116,7 +141,20 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function burnDsc() external {}
+    /**
+     * @param amount The amount of DSC tokens to burn
+     */
+    function burnDsc(uint256 amount) external moreThanZero(amount) {
+        s_DSCMinted[msg.sender] -= amount;
+        // transfer DSC to this contract
+        bool success = i_dsc.transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        i_dsc.burn(amount);
+        // TODO: check if health factor could ever be broken from burning DSC
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
 
     function liquidate() external {}
 
