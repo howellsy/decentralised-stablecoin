@@ -139,6 +139,24 @@ contract DSCEngineTest is Test {
     }
 
     /**
+     * =================================
+     * depositCollateralAndMintDsc tests
+     * * =================================
+     */
+    modifier depositedCollateralAndMintedDsc() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+        dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_TO_MINT);
+        vm.stopPrank();
+        _;
+    }
+
+    function testCanMintWithDepositedCollateral() public depositedCollateralAndMintedDsc {
+        uint256 userBalance = dsc.balanceOf(USER);
+        assertEq(userBalance, AMOUNT_TO_MINT);
+    }
+
+    /**
      * ==============
      * Mint DSC tests
      * ==============
@@ -175,5 +193,33 @@ contract DSCEngineTest is Test {
         vm.expectRevert(DSCEngine.DSCEngine__MintFailed.selector);
         mockDsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_TO_MINT);
         vm.stopPrank();
+    }
+
+    function testCanMintDsc() public depositedCollateral {
+        vm.prank(USER);
+        dsce.mintDsc(AMOUNT_TO_MINT);
+
+        uint256 userBalance = dsc.balanceOf(USER);
+        assertEq(userBalance, AMOUNT_TO_MINT);
+    }
+
+    /**
+     * ==============
+     * Burn DSC tests
+     * ==============
+     */
+    function testBurnRevertsIfBurnAmountIsZero() public {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
+        dsce.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, AMOUNT_TO_MINT);
+        vm.expectRevert(DSCEngine.DSCEngine__MustBeMoreThanZero.selector);
+        dsce.burnDsc(0);
+        vm.stopPrank();
+    }
+
+    function testCantBurnMoreThanUserHas() public {
+        vm.prank(USER);
+        vm.expectRevert();
+        dsce.burnDsc(1);
     }
 }
