@@ -170,6 +170,14 @@ contract DSCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
+    function getAccountInformation(address user)
+        external
+        view
+        returns (uint256 totalDscMinted, uint256 collateralValueInUsd)
+    {
+        (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
+    }
+
     function getHealthFactor() external view {}
 
     /**
@@ -190,12 +198,12 @@ contract DSCEngine is ReentrancyGuard {
     /**
      * Loops through each collateral token and gets the value of all collateral in USD.
      */
-    function getAccountCollateralValue() public view returns (uint256) {
+    function getAccountCollateralValue(address user) public view returns (uint256) {
         uint256 totalCollateralValueInUsd = 0;
 
         for (uint256 i = 0; i < s_collareralTokens.length; i++) {
             address token = s_collareralTokens[i];
-            uint256 balance = s_collateralBalances[msg.sender][token];
+            uint256 balance = s_collateralBalances[user][token];
             totalCollateralValueInUsd += getUsdValue(token, balance);
         }
 
@@ -239,7 +247,7 @@ contract DSCEngine is ReentrancyGuard {
         returns (uint256 totalDscMinted, uint256 collateralValueInUsd)
     {
         totalDscMinted = s_DSCMinted[user];
-        collateralValueInUsd = getAccountCollateralValue();
+        collateralValueInUsd = getAccountCollateralValue(user);
     }
 
     /**
