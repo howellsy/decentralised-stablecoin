@@ -90,24 +90,18 @@ contract DSCEngine is ReentrancyGuard {
      */
 
     /**
-     * @param tokenCollateral The address of the collateral token
-     * @param amount The amount of collateral to deposit
+     * @param tokenCollateralAddress The ERC20 token address of the collateral being deposited
+     * @param amountCollateral The amount of collateral being deposited
+     * @param amountDscToMint The amount of DSC tokens to mint
      */
-    function depositCollateral(address tokenCollateral, uint256 amount)
-        external
-        moreThanZero(amount)
-        isAllowedToken(tokenCollateral)
-        nonReentrant
-    {
-        s_collateralBalances[msg.sender][tokenCollateral] += amount;
-        emit CollateralDeposited(msg.sender, tokenCollateral, amount);
-        bool success = IERC20(tokenCollateral).transferFrom(msg.sender, address(this), amount);
-        if (!success) {
-            revert DSCEngine__TransferFailed();
-        }
+    function depositCollateralAndMintDsc(
+        address tokenCollateralAddress,
+        uint256 amountCollateral,
+        uint256 amountDscToMint
+    ) external {
+        depositCollateral(tokenCollateralAddress, amountCollateral);
+        mintDsc(amountDscToMint);
     }
-
-    function depositCollateralAndMintDsc() external {}
 
     /**
      * Burns DSC tokens and redeems collateral in one transaction.
@@ -121,21 +115,6 @@ contract DSCEngine is ReentrancyGuard {
         burnDsc(amountDscToBurn);
         // redeemCollateral() checks if health factor is broken
         redeemCollateral(tokenCollateral, amountCollateral);
-    }
-
-    /**
-     * @param amountDscToMint The amount of DSC tokens to mint
-     * @notice They must have more collateral value than the minimum threshold
-     */
-    function mintDsc(uint256 amountDscToMint) external moreThanZero(amountDscToMint) nonReentrant {
-        s_DSCMinted[msg.sender] += amountDscToMint;
-        // Do not allow minting if it could lead to liquidation
-        _revertIfHealthFactorIsBroken(msg.sender);
-
-        bool minted = i_dsc.mint(msg.sender, amountDscToMint);
-        if (!minted) {
-            revert DSCEngine__MintFailed();
-        }
     }
 
     /**
@@ -178,7 +157,17 @@ contract DSCEngine is ReentrancyGuard {
         (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
     }
 
-    function getHealthFactor() external view {}
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
+    }
+
+    function getPrecision() external pure returns (uint256) {
+        return PRECISION;
+    }
+
+    function getAdditionalFeedPrecision() external pure returns (uint256) {
+        return ADDITIONAL_FEED_PRECISION;
+    }
 
     /**
      * ================
@@ -193,6 +182,39 @@ contract DSCEngine is ReentrancyGuard {
         _burnDsc(amount, msg.sender, msg.sender);
         // TODO: check if health factor could ever be broken from burning DSC
         _revertIfHealthFactorIsBroken(msg.sender);
+    }
+
+    /**
+     * @param tokenCollateral The address of the collateral token
+     * @param amount The amount of collateral to deposit
+     */
+    function depositCollateral(address tokenCollateral, uint256 amount)
+        public
+        moreThanZero(amount)
+        isAllowedToken(tokenCollateral)
+        nonReentrant
+    {
+        s_collateralBalances[msg.sender][tokenCollateral] += amount;
+        emit CollateralDeposited(msg.sender, tokenCollateral, amount);
+        bool success = IERC20(tokenCollateral).transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+    }
+
+    /**
+     * @param amountDscToMint The amount of DSC tokens to mint
+     * @notice They must have more collateral value than the minimum threshold
+     */
+    function mintDsc(uint256 amountDscToMint) public moreThanZero(amountDscToMint) nonReentrant {
+        s_DSCMinted[msg.sender] += amountDscToMint;
+        // Do not allow minting if it could lead to liquidation
+        _revertIfHealthFactorIsBroken(msg.sender);
+
+        bool minted = i_dsc.mint(msg.sender, amountDscToMint);
+        if (!minted) {
+            revert DSCEngine__MintFailed();
+        }
     }
 
     /**
