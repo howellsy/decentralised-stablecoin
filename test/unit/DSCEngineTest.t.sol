@@ -7,6 +7,7 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralisedStablecoin} from "../../src/DecentralisedStablecoin.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {MockFailedTransferFrom} from "../mocks/MockFailedTransferFrom.sol";
 
 contract DSCEngineTest is Test {
     DeployDSC deployer;
@@ -79,6 +80,34 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
+    /**
+     * @dev To implement the mock DSC contract (with failing transferFrom), this test requires its own set up
+     */
+    function testDepositRevertsIfTransferFromFails() public {
+        // Arrange - DSCEngine (owner)
+        address OWNER = msg.sender;
+        vm.startPrank(OWNER);
+        MockFailedTransferFrom mockDsc = new MockFailedTransferFrom();
+        tokenAddresses = [address(mockDsc)];
+        priceFeedAddresses = [ethUsdPriceFeed];
+        DSCEngine mockDsce = new DSCEngine(
+            tokenAddresses,
+            priceFeedAddresses,
+            address(mockDsc)
+        );
+        mockDsc.mint(USER, AMOUNT_COLLATERAL);
+        mockDsc.transferOwnership(address(mockDsce));
+        vm.stopPrank();
+
+        // Arrange - User
+        vm.startPrank(USER);
+        ERC20Mock(address(mockDsc)).approve(address(mockDsce), AMOUNT_COLLATERAL);
+
+        vm.expectRevert(DSCEngine.DSCEngine__TransferFailed.selector);
+        mockDsce.depositCollateral(address(mockDsc), AMOUNT_COLLATERAL);
+        vm.stopPrank();
+    }
+
     function testDepositRevertsIfTokenNotAllowed() public {
         ERC20Mock testToken = new ERC20Mock("Test", "TEST", USER, AMOUNT_COLLATERAL);
         vm.startPrank(USER);
@@ -93,6 +122,11 @@ contract DSCEngineTest is Test {
         dsce.depositCollateral(weth, AMOUNT_COLLATERAL);
         vm.stopPrank();
         _;
+    }
+
+    function testCanDepositCollateralWithoutMinting() public depositedCollateral {
+        uint256 userBalance = dsc.balanceOf(USER);
+        assertEq(userBalance, 0);
     }
 
     function testCanDepositCollateralAndGetAccountInfo() public depositedCollateral {
