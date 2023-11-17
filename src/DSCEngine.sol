@@ -165,6 +165,14 @@ contract DSCEngine is ReentrancyGuard {
         return LIQUIDATOR_BONUS;
     }
 
+    function getLiquidationThreshold() external pure returns (uint256) {
+        return LIQUIDATION_THRESHOLD;
+    }
+
+    function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
+
     function getPrecision() external pure returns (uint256) {
         return PRECISION;
     }
@@ -322,7 +330,9 @@ contract DSCEngine is ReentrancyGuard {
         pure
         returns (uint256)
     {
+        // handles the case where a user has deposited collateral and not yet minted DSC
         if (totalDscMinted == 0) return type(uint256).max;
+
         uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }

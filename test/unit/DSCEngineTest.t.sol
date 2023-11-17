@@ -24,6 +24,12 @@ contract DSCEngineTest is Test {
     address[] public tokenAddresses;
     address[] public priceFeedAddresses;
 
+    uint256 public constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant LIQUIDATOR_BONUS = 10; // a 10% bonus
+    uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% overcollateralised
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+
     address public constant USER = address(1);
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
     uint256 public constant AMOUNT_TO_MINT = 100 ether;
@@ -373,5 +379,35 @@ contract DSCEngineTest is Test {
     function testUserHasNoMoreDebt() public liquidated {
         (uint256 userDscMinted,) = dsce.getAccountInformation(USER);
         assertEq(userDscMinted, 0);
+    }
+
+    /**
+     * ============================
+     * View and pure function tests
+     * ============================
+     */
+    function testGetLiquidationBonus() public {
+        uint256 liquidationBonus = dsce.getLiquidationBonus();
+        assertEq(liquidationBonus, LIQUIDATOR_BONUS);
+    }
+
+    function testGetLiquidationThreshold() public {
+        uint256 liquidationThreshold = dsce.getLiquidationThreshold();
+        assertEq(liquidationThreshold, LIQUIDATION_THRESHOLD);
+    }
+
+    function testGetMinHealthFactor() public {
+        uint256 minHealthFactor = dsce.getMinHealthFactor();
+        assertEq(minHealthFactor, MIN_HEALTH_FACTOR);
+    }
+
+    function testGetPrecision() public {
+        uint256 precision = dsce.getPrecision();
+        assertEq(precision, PRECISION);
+    }
+
+    function testGetAdditionalFeedPrecision() public {
+        uint256 additionalFeedPrecision = dsce.getAdditionalFeedPrecision();
+        assertEq(additionalFeedPrecision, ADDITIONAL_FEED_PRECISION);
     }
 }
