@@ -7,6 +7,7 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralisedStablecoin} from "../../src/DecentralisedStablecoin.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
 import {MockFailedTransferFrom} from "../mocks/MockFailedTransferFrom.sol";
 import {MockFailedMintDSC} from "../mocks/MockFailedMintDSC.sol";
 
@@ -221,5 +222,36 @@ contract DSCEngineTest is Test {
         vm.prank(USER);
         vm.expectRevert();
         dsce.burnDsc(1);
+    }
+
+    function testCanBurnDsc() public depositedCollateralAndMintedDsc {
+        vm.startPrank(USER);
+        dsc.approve(address(dsce), AMOUNT_TO_MINT);
+        dsce.burnDsc(AMOUNT_TO_MINT);
+        vm.stopPrank();
+
+        uint256 userBalance = dsc.balanceOf(USER);
+        assertEq(userBalance, 0);
+    }
+
+    /**
+     * ==================
+     * Health factor tests
+     * ==================
+     */
+
+    function testHealthFactorIsCorrectlyReported() public depositedCollateralAndMintedDsc {
+        uint256 expectedHealthFactor = 100 ether;
+        uint256 actualHealthFactor = dsce.getHealthFactor(USER);
+
+        assertEq(expectedHealthFactor, actualHealthFactor);
+    }
+
+    function testHealthFactorCanGoBelowOne() public depositedCollateralAndMintedDsc {
+        int256 ethUsdUpdatedPrice = 18e8; // 1 ETH = $18
+
+        MockV3Aggregator(ethUsdPriceFeed).updateAnswer(ethUsdUpdatedPrice);
+        uint256 healthFactor = dsce.getHealthFactor(USER);
+        assert(healthFactor < 1e18);
     }
 }
