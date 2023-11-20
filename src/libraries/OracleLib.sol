@@ -27,4 +27,8 @@ library OracleLib {
         }
         return (roundId, answer, startedAt, updatedAt, answeredInRound);
     }
+
+    function getTimeout() public pure returns (uint256) {
+        return TIMEOUT;
+    }
 }
